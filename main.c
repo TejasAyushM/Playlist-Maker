@@ -1,364 +1,431 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include<time.h>
+#include <time.h>
+#include <mongoc/mongoc.h>
 
-typedef struct node {
-    struct node* next;
-    struct node* prev;
-    char song[1000];
-    int ran;
-    int pos;
-} NODE;
-
-typedef struct link {
-    NODE* head;
-} LINK;
-
-NODE* createNode(char* s) {
-    NODE* newNode = (NODE*)malloc(sizeof(NODE));
-    strcpy(newNode->song, s);
-    newNode->next = NULL;
-    newNode->prev = NULL;
-    newNode->pos = 0;
-    newNode->ran = 0;
-    return newNode;
-}
-
-void insertNode(LINK* p, char* s) {
-    NODE* newNode = createNode(s);
-    if (p->head == NULL) {
-        p->head = newNode;
-        newNode->pos = 1;
-        newNode->next = newNode;
-        newNode->prev = newNode;
-    } 
-    else 
-    {
-        NODE* t1 = p->head;
-        NODE* last = t1->prev;
-        last->next = newNode;
-        newNode->prev = last;
-        newNode->next = t1;
-        t1->prev = newNode;
-        newNode->pos = last->pos + 1;
-    }
-}
-
-void deletebyName(LINK* p, char* s) {
-    if (p->head == NULL) {
-        printf("Playlist Empty");
-    } else {
-        NODE* t1 = p->head;
-        do {
-            if (strcmp(t1->song, s) == 0) {
-                if (t1 == p->head && t1->next == p->head) {
-                    printf("Deleted song %s", t1->song);
-                    free(t1);
-                    p->head = NULL;
-                } else if (t1 == p->head) {
-                    p->head = t1->next;
-                    t1->prev->next = t1->next;
-                    t1->next->prev = t1->prev;
-                    printf("Deleted song %s", t1->song);
-                    free(t1);
-                } else {
-                    t1->prev->next = t1->next;
-                    t1->next->prev = t1->prev;
-                    printf("Deleted song %s", t1->song);
-                    free(t1);
-                }
-                return;
-            }
-            t1 = t1->next;
-        } while (t1 != p->head);
-        printf("Song not found in the playlist");
-    }
-}
-
-void display(LINK* p) {
-    if (p->head == NULL) {
-        printf("Playlist Empty");
-    } else {
-        NODE* t = p->head;
-        do {
-            printf("%d. %s\n", t->pos, t->song);
-            t = t->next;
-        } while (t != p->head);
-    }
-}
-
-int count_songs(LINK* p) {
-    int count = 0;
-    if (p->head != NULL) {
-        NODE* t = p->head;
-        do {
-            count++;
-            t = t->next;
-        } while (t != p->head);
-    }
-    return count;
-}
-
-void play(NODE* p) {
-    if (p != NULL) {
-        printf("Now playing %s\n", p->song);
-    } else {
-        printf("No song to play\n");
-    }
-}
-
-void playbyName(LINK* p, char* s) {
-    if (p->head == NULL) {
-        printf("Playlist Empty");
-    } else {
-        NODE* t1 = p->head;
-        do {
-            if (strcmp(t1->song, s) == 0) {
-                play(t1);
-                return;
-            }
-            t1 = t1->next;
-        } while (t1 != p->head);
-        printf("Song not found in the playlist");
-    }
-}
-
-NODE* playnext(NODE* p) {
-    if (p != NULL) {
-        p = p->next;
-        play(p);
-    } else {
-        printf("No song to play next\n");
-    }
-    return p;
-}
-
-NODE* playprev(NODE* p) {
-    if (p != NULL) {
-        p = p->prev;
-        play(p);
-    } else {
-        printf("No song to play previous\n");
-    }
-    return p;
-}
-
-int generateRandom(int min, int max) 
+struct node
 {
-    static int initialized = 0; // To ensure srand is called only once
-    if (!initialized)
+    char *song_name;
+    struct node *next;
+};
+
+/**
+ * Displays the menu of options.
+ */
+void display_menu()
+{
+    printf("1. Create a new playlist\n");
+    printf("2. Add a song to the playlist\n");
+    printf("3. Delete a song from the playlist\n");
+    printf("4. Display the playlist\n");
+    printf("5. Play/Pause the current song\n");
+    printf("6. Play the next song\n");
+    printf("7. Play the previous song\n");
+    printf("8. Shuffle the playlist\n");
+    printf("9. Exit\n");
+    printf("\n");
+}
+
+/**
+ * Creates a new playlist.
+ *
+ * @param client A pointer to the MongoDB client.
+ * @return A pointer to the head of the new playlist.
+ */
+struct node *create_playlist(mongoc_client_t *client)
+{
+    printf("Enter playlist name: ");
+    char *playlist_name = (char *)malloc(sizeof(char) * 100);
+    scanf("%s", playlist_name);
+
+    // Insert playlist name into MongoDB
+    bson_t *doc = bson_new();
+    BSON_APPEND_UTF8(doc, "name", playlist_name);
+    mongoc_collection_t *collection = mongoc_client_get_collection(client, "mydb", "playlists");
+    mongoc_collection_insert_one(collection, doc, NULL, NULL);
+    bson_destroy(doc);
+
+    struct node *head = NULL;
+    return head;
+}
+
+/**
+ * Adds a song to the playlist.
+ *
+ * @param client A pointer to the MongoDB client.
+ * @param head A pointer to the head of the playlist.
+ * @param song_name The name of the song to add.
+ * @return A pointer to the head of the updated playlist.
+ */
+struct node *add_song(mongoc_client_t *client, struct node *head, char *song_name)
+{
+    struct node *new_node = (struct node *)malloc(sizeof(struct node));
+    new_node->song_name = song_name;
+    new_node->next = NULL;
+
+    if (head == NULL)
     {
-        srand(time(NULL)); // Set the seed based on the current time
-        initialized = 1;
+        head = new_node;
     }
-    return min + rand() % (max - min + 1);
-}
-
-void assign_random(LINK* p){
-    NODE* t= p->head;
-    do{
-        t->ran=generateRandom(1,count_songs(p));
-        t=t->next;
-    }while(t!=p->head);
-}
-
-// Function to sort the circular doubly linked list using Selection Sort based on "ran" value
-void selectionSort(LINK* p) {
-    if (p->head == NULL) {
-        printf("Playlist is empty.\n");
-        return;
+    else
+    {
+        struct node *current = head;
+        while (current->next != NULL)
+        {
+            current = current->next;
+        }
+        current->next = new_node;
     }
 
-    NODE* current = p->head;
+    // Insert song name into MongoDB
+    bson_t *doc = bson_new();
+    BSON_APPEND_UTF8(doc, "name", song_name);
+    mongoc_collection_t *collection = mongoc_client_get_collection(client, "mydb", "songs");
+    mongoc_collection_insert_one(collection, doc, NULL, NULL);
+    bson_destroy(doc);
 
-    do {
-        NODE* min = current;
-        NODE* innerCurrent = current->next;
+    return head;
+}
 
-        do {
-            if (innerCurrent->ran < min->ran) {
-                min = innerCurrent;
+/**
+ * Deletes a song from the playlist.
+ *
+ * @param client A pointer to the MongoDB client.
+ * @param head A pointer to the head of the playlist.
+ * @param song_name The name of the song to delete.
+ * @return A pointer to the head of the updated playlist.
+ */
+struct node *delete_song(mongoc_client_t *client, struct node *head, char *song_name)
+{
+    struct node *current = head;
+    struct node *previous = NULL;
+    int found = 0;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->song_name, song_name) == 0)
+        {
+            if (previous == NULL)
+            {
+                head = current->next;
             }
-            innerCurrent = innerCurrent->next;
-        } while (innerCurrent != p->head);
-
-        // Swap the "ran" values
-        int temp = current->ran;
-        current->ran = min->ran;
-        min->ran = temp;
-
-        // Move the current node to the next position in the circular list
+            else
+            {
+                previous->next = current->next;
+            }
+            free(current);
+            found = 1;
+            break;
+        }
+        previous = current;
         current = current->next;
-    } while (current != p->head);
-}
-
-void shuffle(LINK* p) {
-  if (p->head == NULL) {
-    printf("Playlist is empty.\n");
-    return;
-  }
-
-  int num_songs = count_songs(p);
-
-  // Generate a random number between 0 and the number of songs in the playlist.
-  int random_index = rand() % num_songs;
-
-  // Set the current node to the head of the playlist.
-  NODE* current = p->head;
-
-  // Move the current node forward the random number of steps.
-  for (int i = 0; i < random_index; i++) {
-    current = current->next;
-  }
-
-  // Swap the current node with the node at the current position.
-  NODE* temp = current;
-  current = current->next;
-  current->next = temp;
-  temp->next = current->prev;
-  current->prev = temp->prev;
-  temp->prev = current;
-
-  // Move the current node to the head of the playlist.
-  p->head = current;
-
-  // Repeat the process until you have reached the end of the playlist.
-  while (current->next != p->head) {
-    // Generate a random number between 0 and the number of songs in the playlist.
-    random_index = rand() % num_songs;
-
-    // Move the current node forward the random number of steps.
-    for (int i = 0; i < random_index; i++) {
-      current = current->next;
     }
 
-    // Swap the current node with the node at the current position.
-    temp = current;
-    current = current->next;
-    current->next = temp;
-    temp->next = current->prev;
-    current->prev = temp->prev;
-    temp->prev = current;
-  }
-}
-
-void shuffle1(LINK* p) {
-  if (p->head == NULL) {
-    printf("Playlist is empty.\n");
-    return;
-  }
-
-  // Generate a random number between 0 and the number of songs in the playlist.
-  int num_songs = count_songs(p);
-  int random_index = rand() % num_songs;
-
-  // Set the current node to the head of the playlist.
-  NODE* current = p->head;
-
-  // Move the current node forward the random number of steps.
-  for (int i = 0; i < random_index; i++) {
-    current = current->next;
-  }
-
-  // Swap the current node with the node at the head of the playlist.
-  NODE* temp = current;
-  current = p->head;
-  p->head = temp;
-
-  // Update the pointers of the two nodes.
-  current->next = temp->next;
-  temp->next = current->prev;
-  current->prev = temp->prev;
-  temp->prev = current;
-
-  // Repeat the process until you have reached the end of the playlist.
-  while (current->next != p->head) {
-    // Generate a random number between 0 and the number of songs in the playlist.
-    random_index = rand() % num_songs;
-
-    // Move the current node forward the random number of steps.
-    for (int i = 0; i < random_index; i++) {
-      current = current->next;
+    if (!found)
+    {
+        printf("Song not found\n");
+    }
+    else
+    {
+        // Delete song name from MongoDB
+        bson_t *doc = bson_new();
+        BSON_APPEND_UTF8(doc, "name", song_name);
+        mongoc_collection_t *collection = mongoc_client_get_collection(client, "mydb", "songs");
+        mongoc_collection_delete_one(collection, doc, NULL, NULL);
+        bson_destroy(doc);
     }
 
-    // Swap the current node with the node at the current position.
-    temp = current;
-    current = current->next;
-    current->next = temp->next;
-    temp->next = current->prev;
-    current->prev = temp->prev;
-    temp->prev = current;
-  }
+    return head;
 }
 
+/**
+ * Displays the contents of the playlist.
+ *
+ * @param head A pointer to the head of the playlist.
+ */
+void display(struct node *head)
+{
+    if (head == NULL)
+    {
+        printf("Playlist is empty\n");
+    }
+    else
+    {
+        struct node *current = head;
+        while (current != NULL)
+        {
+            printf("%s\n", current->song_name);
+            current = current->next;
+        }
+    }
+}
+
+/**
+ * Plays or pauses the current song.
+ *
+ * @param head A pointer to the head of the playlist.
+ * @param current_song The name of the current song.
+ * @param is_playing A pointer to a boolean indicating whether the song is currently playing.
+ * @return The name of the current song.
+ */
+char *play_pause(struct node *head, char *current_song, int *is_playing)
+{
+    struct node *current = head;
+    int found = 0;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->song_name, current_song) == 0)
+        {
+            if (*is_playing)
+            {
+                printf("Pausing %s\n", current->song_name);
+                *is_playing = 0;
+            }
+            else
+            {
+                printf("Playing %s\n", current->song_name);
+                *is_playing = 1;
+            }
+            found = 1;
+            break;
+        }
+        current = current->next;
+    }
+
+    if (!found)
+    {
+        printf("Song not found\n");
+    }
+
+    return current_song;
+}
+
+/**
+ * Plays the next song in the playlist.
+ *
+ * @param head A pointer to the head of the playlist.
+ * @param current_song The name of the current song.
+ * @param is_playing A pointer to a boolean indicating whether the song is currently playing.
+ * @return The name of the current song.
+ */
+char *play_next(struct node *head, char *current_song, int *is_playing)
+{
+    struct node *current = head;
+    int found = 0;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->song_name, current_song) == 0)
+        {
+            if (current->next != NULL)
+            {
+                printf("Playing next song\n");
+                current = current->next;
+                printf("Playing %s\n", current->song_name);
+                found = 1;
+            }
+            else
+            {
+                printf("End of playlist\n");
+            }
+            break;
+        }
+        current = current->next;
+    }
+
+    if (!found)
+    {
+        printf("Song not found\n");
+    }
+
+    return current->song_name;
+}
+
+/**
+ * Plays the previous song in the playlist.
+ *
+ * @param head A pointer to the head of the playlist.
+ * @param current_song The name of the current song.
+ * @param is_playing A pointer to a boolean indicating whether the song is currently playing.
+ * @return The name of the current song.
+ */
+char *play_previous(struct node *head, char *current_song, int *is_playing)
+{
+    struct node *current = head;
+    struct node *previous = NULL;
+    int found = 0;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->song_name, current_song) == 0)
+        {
+            if (previous != NULL)
+            {
+                printf("Playing previous song\n");
+                printf("Playing %s\n", previous->song_name);
+                found = 1;
+            }
+            else
+            {
+                printf("Beginning of playlist\n");
+            }
+            break;
+        }
+        previous = current;
+        current = current->next;
+    }
+
+    if (!found)
+    {
+        printf("Song not found\n");
+    }
+
+    return previous->song_name;
+}
+
+/**
+ * Shuffles the playlist.
+ *
+ * @param head A pointer to the head of the playlist.
+ */
+void shuffle(struct node *head)
+{
+    int count = 0;
+    struct node *current = head;
+    while (current != NULL)
+    {
+        count++;
+        current = current->next;
+    }
+
+    srand(time(NULL));
+    for (int i = 0; i < count; i++)
+    {
+        int j = rand() % count;
+        int k = rand() % count;
+
+        struct node *node1 = head;
+        struct node *node2 = head;
+        for (int x = 0; x < j; x++)
+        {
+            node1 = node1->next;
+        }
+        for (int x = 0; x < k; x++)
+        {
+            node2 = node2->next;
+        }
+
+        char *temp = node1->song_name;
+        node1->song_name = node2->song_name;
+        node2->song_name = temp;
+    }
+
+    printf("Shuffled playlist\n");
+}
+
+/**
+ * Main function that runs the program.
+ *
+ * @return 0 if the program runs successfully.
+ */
 int main()
 {
-    printf("WELCOME TO YOUR PERSONAL MUSIC PLAYER");
-    LINK obj;
-    obj.head= NULL;
-    NODE* hold=obj.head;
+    mongoc_init();
+
+    const char *uri_string = "mongodb://localhost:27017";
+    mongoc_uri_t *uri = mongoc_uri_new_with_error(uri_string, NULL);
+    mongoc_client_t *client = mongoc_client_new_from_uri(uri);
+
+    struct node *head = NULL;
+    char *current_song = NULL;
+    int is_playing = 0;
+
     int choice;
-    char s[1000];
-    int num;
-    char s1[1000];
-    char s2[1000];
     do
     {
-        printf("\n1.Add New Song\n2.Delete Song\n3.Display Playlist\n4.Count number of songs\n5.Play Song\n6.Play next song\n7.Play previous song\n8.Shuffle playlist\n9.Exit\n\n");
-        printf("Enter your choice");
-        scanf("%d",&choice);
-        switch(choice)
+        display_menu();
+        scanf("%d", &choice);
 
+        switch (choice)
         {
-            case 1:
-                
-                printf("Enter the Song name");
-                scanf("%s", s);
-                insertNode(&obj, s);
+        case 1:
+            head = create_playlist(client);
             break;
 
-            case 2:
-                
-                printf("enter song to be deleted");
-                scanf("%s",s1);
-                deletebyName(&obj,s1);
+        case 2:
+            printf("Enter song name: ");
+            char *song_name = (char *)malloc(sizeof(char) * 100);
+            scanf("%s", song_name);
+            head = add_song(client, head, song_name);
             break;
 
-            case 3:
-                display(&obj);
-            break;  
-
-            case 4:
-                printf("total number of songs are %d",count_songs(&obj));
+        case 3:
+            printf("Enter song name: ");
+            char *song_name_to_delete = (char *)malloc(sizeof(char) * 100);
+            scanf("%s", song_name_to_delete);
+            head = delete_song(client, head, song_name_to_delete);
             break;
 
-            case 5:
-                
-                printf("Enter song name");
-                scanf("%s",s2);
-                playbyName(&obj,s2);
+        case 4:
+            display(head);
             break;
 
-            case 6:
-                playnext(obj.head);
+        case 5:
+            if (current_song == NULL)
+            {
+                printf("No song playing\n");
+            }
+            else
+            {
+                current_song = play_pause(head, current_song, &is_playing);
+            }
             break;
 
-            case 7:
-                playprev(obj.head);
+        case 6:
+            if (current_song == NULL)
+            {
+                if (head == NULL)
+                {
+                    printf("Playlist is empty\n");
+                }
+                else
+                {
+                    current_song = head->song_name;
+                    printf("Playing %s\n", current_song);
+                }
+            }
+            else
+            {
+                current_song = play_next(head, current_song, &is_playing);
+            }
             break;
 
-            case 8:
-                shuffle1(&obj);
-                printf("Shuffled your playlist");
-                display(&obj);
+        case 7:
+            if (current_song == NULL)
+            {
+                printf("No song playing\n");
+            }
+            else
+            {
+                current_song = play_previous(head, current_song, &is_playing);
+            }
             break;
 
-            case 9:
+        case 8:
+            shuffle(head);
+            break;
+
+        case 9:
             exit(0);
         }
 
-    } while (choice!=9);
-    
-}
+    } while (choice != 9);
 
+    mongoc_client_destroy(client);
+    mongoc_uri_destroy(uri);
+    mongoc_cleanup();
+
+    return 0;
+}
