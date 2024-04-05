@@ -1,5 +1,5 @@
 # Playlist Maker
-Welcome to the Personal Music Player project! This is a simple command-line music player implemented in C. With this player, you can manage your playlist, add songs, delete songs, play songs, shuffle your playlist, and more.
+Welcome to the Personal Music Player project! This is a simple command-line music player implemented in C.This is a Data Structures project which uses Circular Doubly linked lists. With this player, you can manage your playlist, add songs, delete songs, play songs, shuffle your playlist, and more.
 
 ## Features
 
