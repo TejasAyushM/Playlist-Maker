@@ -3,15 +3,15 @@ Welcome to the Personal Music Player project! This is a simple command-line musi
 
 ## Features
 
-Add New Song
-Delete Song
-Display Playlist
-Count Number of Songs
-Play Song
-Play Next Song
-Play Previous Song
-Move Song
-Shuffle Playlist
+Add a new Song,
+delete a Song,
+display the Playlist,
+count the Number of Songs,
+play the Song,
+play the Next Song,
+play the Previous Song,
+Move a song and
+Shuffle the playlist
 
 
 ## Getting Started
