@@ -17,7 +17,7 @@ Shuffle the playlist
 ## Getting Started
 Prerequisites:
 
-A C compiler (e.g., GCC)
+A C compiler (e.g., GCC) and
 Standard C libraries
 
 ## Run the program
